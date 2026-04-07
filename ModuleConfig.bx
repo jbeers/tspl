@@ -1,0 +1,60 @@
+/**
+ * TSPL module descriptor.
+ */
+class {
+
+	/**
+	 * Module version.
+	 */
+	this.version = "0.0.0";
+
+	/**
+	 * Module mapping.
+	 */
+	this.mapping = "tspl";
+
+	/**
+	 * Module author.
+	 */
+	this.author = "Jacob Beers";
+
+	/**
+	 * Module description.
+	 */
+	this.description = "A BoxLang module for authoring TSPL jobs with a fluent API.";
+
+	/**
+	 * Module homepage.
+	 */
+	this.webURL = "";
+
+	/**
+	 * Whether the module is enabled.
+	 */
+	this.enabled = true;
+
+	/**
+	 * Configure the module.
+	 *
+	 * @runtime The BoxLang runtime.
+	 */
+	function configure( runtime ) {
+		settings = {};
+		interceptors = [];
+		customInterceptionPoints = [];
+	}
+
+	/**
+	 * Invoked when the module loads.
+	 *
+	 * @runtime The BoxLang runtime.
+	 */
+	function onLoad( runtime ) {}
+
+	/**
+	 * Invoked when the module unloads.
+	 *
+	 * @runtime The BoxLang runtime.
+	 */
+	function onUnload( runtime ) {}
+}

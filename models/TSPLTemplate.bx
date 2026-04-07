@@ -1,0 +1,1130 @@
+/**
+ * Fluent TSPL job builder for BoxLang.
+ */
+class {
+
+	/**
+	 * Creates a new template.
+	 *
+	 * @dpi Printer DPI used for unit conversion.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function init( numeric dpi = 203 ) {
+		variables.dpi = arguments.dpi;
+		variables.unitMode = "dots";
+		variables.dimensions = {
+			width       : 0,
+			height      : "auto",
+			configured  : false,
+			contentLock : false
+		};
+		variables.media = {
+			type      : "gap",
+			primary   : 0,
+			secondary : 0
+		};
+		variables.setup = {
+			direction   : 0,
+			mirror      : 0,
+			referenceX  : 0,
+			referenceY  : 0,
+			offset      : 0,
+			speed       : "",
+			density     : ""
+		};
+		variables.printOptions = {
+			copies : 1,
+			sets   : 1
+		};
+		variables.defaultLineStep = 24;
+		variables.cursor = { x : 0, y : 0 };
+		variables.anchorState = { horizontal : "left", vertical : "top" };
+		variables.currentRegion = "__label__";
+		variables.regions = {};
+		variables.steps = [];
+		variables.lastMeasured = { width : 0, height : 0 };
+
+		return this;
+	}
+
+	/**
+	 * Defines the printable dimensions for the template.
+	 *
+	 * Height may be set to "auto" for continuous/receipt style media.
+	 *
+	 * @width The printable width.
+	 * @height The printable height or "auto".
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function dimensions( required any width, any height = "auto", string unitOverride = "" ) {
+		if ( variables.dimensions.contentLock ) {
+			throw(
+				type    : "TSPLTemplate.DimensionsLocked",
+				message : "Dimensions cannot be changed after drawable commands have been added."
+			);
+		}
+
+		var widthDots = toDots( arguments.width, arguments.unitOverride );
+		var heightValue = arguments.height;
+
+		if ( isSimpleValue( arguments.height ) && lCase( toString( arguments.height ) ) == "auto" ) {
+			heightValue = "auto";
+		} else {
+			heightValue = toDots( arguments.height, arguments.unitOverride );
+		}
+
+		variables.dimensions = {
+			width       : widthDots,
+			height      : heightValue,
+			configured  : true,
+			contentLock : false
+		};
+		variables.regions = {
+			"__label__" : {
+				name   : "__label__",
+				x      : 0,
+				y      : 0,
+				width  : widthDots,
+				height : heightValue == "auto" ? 0 : heightValue
+			}
+		};
+		variables.currentRegion = "__label__";
+		variables.cursor = { x : 0, y : 0 };
+		variables.anchorState = { horizontal : "left", vertical : "top" };
+
+		return this;
+	}
+
+	/**
+	 * Sets the input unit mode used by subsequent fluent calls.
+	 *
+	 * Supported values are dots, metric, and imperial.
+	 *
+	 * @mode The new unit mode.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function units( required string mode ) {
+		var normalized = normalizeUnitMode( arguments.mode );
+		variables.unitMode = normalized;
+		return this;
+	}
+
+	/**
+	 * Configures gap media handling.
+	 *
+	 * @distance The gap size.
+	 * @offset The gap offset.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function gap( required any distance, any offset = 0, string unitOverride = "" ) {
+		variables.media = {
+			type      : "gap",
+			primary   : toDots( arguments.distance, arguments.unitOverride ),
+			secondary : toDots( arguments.offset, arguments.unitOverride )
+		};
+		return this;
+	}
+
+	/**
+	 * Configures black mark media handling.
+	 *
+	 * @height The black mark height.
+	 * @offset The black mark offset.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function bline( required any height, any offset = 0, string unitOverride = "" ) {
+		variables.media = {
+			type      : "bline",
+			primary   : toDots( arguments.height, arguments.unitOverride ),
+			secondary : toDots( arguments.offset, arguments.unitOverride )
+		};
+		return this;
+	}
+
+	/**
+	 * Configures print direction and mirror mode.
+	 *
+	 * @direction The TSPL direction value.
+	 * @mirror The TSPL mirror value.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function direction( numeric direction = 0, numeric mirror = 0 ) {
+		variables.setup.direction = arguments.direction;
+		variables.setup.mirror = arguments.mirror;
+		return this;
+	}
+
+	/**
+	 * Sets the printer reference point.
+	 *
+	 * @x The reference X position.
+	 * @y The reference Y position.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function reference( required any x, required any y, string unitOverride = "" ) {
+		variables.setup.referenceX = toDots( arguments.x, arguments.unitOverride );
+		variables.setup.referenceY = toDots( arguments.y, arguments.unitOverride );
+		return this;
+	}
+
+	/**
+	 * Sets the media offset used by the TSPL OFFSET command.
+	 *
+	 * @distance The media offset distance.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function mediaOffset( required any distance, string unitOverride = "" ) {
+		variables.setup.offset = toDots( arguments.distance, arguments.unitOverride );
+		return this;
+	}
+
+	/**
+	 * Sets printer speed.
+	 *
+	 * @value The TSPL speed value.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function speed( required numeric value ) {
+		variables.setup.speed = arguments.value;
+		return this;
+	}
+
+	/**
+	 * Sets printer density.
+	 *
+	 * @value The TSPL density value.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function density( required numeric value ) {
+		variables.setup.density = arguments.value;
+		return this;
+	}
+
+	/**
+	 * Defines a named logical region for layout.
+	 *
+	 * Regions are layout-only helpers and do not imply clipping.
+	 *
+	 * @name Region name.
+	 * @x Region X origin.
+	 * @y Region Y origin.
+	 * @width Region width.
+	 * @height Region height.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function region(
+		required string name,
+		required any x,
+		required any y,
+		required any width,
+		required any height,
+		string unitOverride = ""
+	) {
+		ensureDimensions();
+		variables.regions[ arguments.name ] = {
+			name   : arguments.name,
+			x      : toDots( arguments.x, arguments.unitOverride ),
+			y      : toDots( arguments.y, arguments.unitOverride ),
+			width  : toDots( arguments.width, arguments.unitOverride ),
+			height : toDots( arguments.height, arguments.unitOverride )
+		};
+		return this;
+	}
+
+	/**
+	 * Switches the active region used by positioning and anchoring helpers.
+	 *
+	 * @name Region name.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function useRegion( required string name ) {
+		if ( !structKeyExists( variables.regions, arguments.name ) ) {
+			throw(
+				type    : "TSPLTemplate.UnknownRegion",
+				message : "Unknown region [#arguments.name#]."
+			);
+		}
+
+		variables.currentRegion = arguments.name;
+		variables.cursor = { x : 0, y : 0 };
+
+		return this;
+	}
+
+	/**
+	 * Moves the logical cursor to an absolute position within the active region.
+	 *
+	 * @x The X coordinate.
+	 * @y The Y coordinate.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function moveTo( required any x, required any y, string unitOverride = "" ) {
+		ensureDimensions();
+		variables.cursor = {
+			x : toDots( arguments.x, arguments.unitOverride ),
+			y : toDots( arguments.y, arguments.unitOverride )
+		};
+		return this;
+	}
+
+	/**
+	 * Moves the logical cursor by a relative amount.
+	 *
+	 * @dx The X delta.
+	 * @dy The Y delta.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function moveBy( required any dx, required any dy, string unitOverride = "" ) {
+		ensureDimensions();
+		variables.cursor.x += toDots( arguments.dx, arguments.unitOverride );
+		variables.cursor.y += toDots( arguments.dy, arguments.unitOverride );
+		return this;
+	}
+
+	/**
+	 * Applies an additional offset to the current cursor position.
+	 *
+	 * @dx The X delta.
+	 * @dy The Y delta.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function offset( required any dx, required any dy, string unitOverride = "" ) {
+		return moveBy( arguments.dx, arguments.dy, arguments.unitOverride );
+	}
+
+	/**
+	 * Sets the active anchor used to resolve positioned elements inside the active region.
+	 *
+	 * @horizontal left, center, or right.
+	 * @vertical top, middle, or bottom.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function anchor( required string horizontal, string vertical = "top" ) {
+		var horizontalValue = lCase( arguments.horizontal );
+		var verticalValue = lCase( arguments.vertical );
+
+		if ( !listFindNoCase( "left,center,right", horizontalValue ) ) {
+			throw(
+				type    : "TSPLTemplate.InvalidAnchor",
+				message : "Horizontal anchor must be left, center, or right."
+			);
+		}
+
+		if ( !listFindNoCase( "top,middle,bottom", verticalValue ) ) {
+			throw(
+				type    : "TSPLTemplate.InvalidAnchor",
+				message : "Vertical anchor must be top, middle, or bottom."
+			);
+		}
+
+		variables.anchorState = {
+			horizontal : horizontalValue,
+			vertical   : verticalValue
+		};
+
+		return this;
+	}
+
+	/**
+	 * Moves the cursor down by a fixed line step.
+	 *
+	 * If no explicit step is supplied, the current template default is used.
+	 *
+	 * @step Optional line step.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function newLine( any step = 0, string unitOverride = "" ) {
+		var amount = variables.defaultLineStep;
+
+		if ( toString( arguments.step ) != "0" ) {
+			amount = toDots( arguments.step, arguments.unitOverride );
+		}
+
+		variables.cursor.y += amount;
+		return this;
+	}
+
+	/**
+	 * Sets the default line step used by newLine().
+	 *
+	 * @step The new default line step.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function lineStep( required any step, string unitOverride = "" ) {
+		variables.defaultLineStep = toDots( arguments.step, arguments.unitOverride );
+		return this;
+	}
+
+	/**
+	 * Advances the cursor by the height of the last measured fluent element.
+	 *
+	 * @spacing Optional extra spacing after the measured element.
+	 * @unitOverride Optional unit override for this call.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function advance( any spacing = 0, string unitOverride = "" ) {
+		var extra = 0;
+
+		if ( toString( arguments.spacing ) != "0" ) {
+			extra = toDots( arguments.spacing, arguments.unitOverride );
+		}
+
+		variables.cursor.y += variables.lastMeasured.height + extra;
+		return this;
+	}
+
+	/**
+	 * Appends a raw TSPL command template.
+	 *
+	 * The command participates in variable substitution during toCommands().
+	 * Reserved variables like {x} and {y} reflect the authored cursor state for the raw command.
+	 *
+	 * @command Raw TSPL command template.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function raw( required string command ) {
+		ensureDimensions();
+		appendStep(
+			{
+				type     : "raw",
+				command  : arguments.command,
+				cursorX  : variables.cursor.x,
+				cursorY  : variables.cursor.y,
+				region   : variables.currentRegion,
+				anchor   : snapshotAnchor()
+			},
+			false
+		);
+		return this;
+	}
+
+	/**
+	 * Appends a text command at the current logical cursor position.
+	 *
+	 * @value The text or text template.
+	 * @font The TSPL font identifier.
+	 * @xMultiplier The horizontal text multiplier.
+	 * @yMultiplier The vertical text multiplier.
+	 * @rotation The text rotation.
+	 * @widthOverride Optional width override used for anchoring calculations.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function text(
+		required any value,
+		string font = "0",
+		numeric xMultiplier = 1,
+		numeric yMultiplier = 1,
+		numeric rotation = 0,
+		numeric widthOverride = 0
+	) {
+		ensureDimensions();
+		appendStep(
+			{
+				type          : "text",
+				value         : toString( arguments.value ),
+				font          : arguments.font,
+				xMultiplier   : arguments.xMultiplier,
+				yMultiplier   : arguments.yMultiplier,
+				rotation      : arguments.rotation,
+				widthOverride : arguments.widthOverride,
+				cursorX       : variables.cursor.x,
+				cursorY       : variables.cursor.y,
+				region        : variables.currentRegion,
+				anchor        : snapshotAnchor()
+			},
+			true
+		);
+		return this;
+	}
+
+	/**
+	 * Appends a barcode command at the current logical cursor position.
+	 *
+	 * @value The barcode content.
+	 * @codeType The barcode symbology.
+	 * @height The barcode height.
+	 * @humanReadable Whether to print human readable text.
+	 * @rotation The barcode rotation.
+	 * @narrow The narrow bar width.
+	 * @wide The wide bar width.
+	 * @unitOverride Optional unit override for size parameters.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function barcode(
+		required any value,
+		string codeType = "128",
+		any height = 80,
+		numeric humanReadable = 1,
+		numeric rotation = 0,
+		any narrow = 2,
+		any wide = 2,
+		string unitOverride = ""
+	) {
+		ensureDimensions();
+		appendStep(
+			{
+				type          : "barcode",
+				value         : toString( arguments.value ),
+				codeType      : arguments.codeType,
+				height        : toDots( arguments.height, arguments.unitOverride ),
+				humanReadable : arguments.humanReadable,
+				rotation      : arguments.rotation,
+				narrow        : toDots( arguments.narrow, arguments.unitOverride ),
+				wide          : toDots( arguments.wide, arguments.unitOverride ),
+				cursorX       : variables.cursor.x,
+				cursorY       : variables.cursor.y,
+				region        : variables.currentRegion,
+				anchor        : snapshotAnchor()
+			},
+			true
+		);
+		return this;
+	}
+
+	/**
+	 * Appends a QR code command at the current logical cursor position.
+	 *
+	 * @value The QR code content.
+	 * @cellWidth The QR cell width.
+	 * @eccLevel The error correction level.
+	 * @mode The input mode.
+	 * @rotation The QR code rotation.
+	 * @model The QR model.
+	 * @mask The QR mask.
+	 * @unitOverride Optional unit override for size parameters.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function qrCode(
+		required any value,
+		any cellWidth = 4,
+		string eccLevel = "M",
+		string mode = "A",
+		numeric rotation = 0,
+		string model = "M2",
+		string mask = "S7",
+		string unitOverride = ""
+	) {
+		ensureDimensions();
+		appendStep(
+			{
+				type      : "qrcode",
+				value     : toString( arguments.value ),
+				cellWidth : toDots( arguments.cellWidth, arguments.unitOverride ),
+				eccLevel  : arguments.eccLevel,
+				mode      : arguments.mode,
+				rotation  : arguments.rotation,
+				model     : arguments.model,
+				mask      : arguments.mask,
+				cursorX   : variables.cursor.x,
+				cursorY   : variables.cursor.y,
+				region    : variables.currentRegion,
+				anchor    : snapshotAnchor()
+			},
+			true
+		);
+		return this;
+	}
+
+	/**
+	 * Appends a rectangular box command using the current cursor as the origin.
+	 *
+	 * @width The box width.
+	 * @height The box height.
+	 * @thickness The border thickness.
+	 * @radius The optional corner radius.
+	 * @unitOverride Optional unit override for size parameters.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function box(
+		required any width,
+		required any height,
+		any thickness = 1,
+		any radius = 0,
+		string unitOverride = ""
+	) {
+		ensureDimensions();
+		appendStep(
+			{
+				type       : "box",
+				width      : toDots( arguments.width, arguments.unitOverride ),
+				height     : toDots( arguments.height, arguments.unitOverride ),
+				thickness  : toDots( arguments.thickness, arguments.unitOverride ),
+				radius     : toDots( arguments.radius, arguments.unitOverride ),
+				cursorX    : variables.cursor.x,
+				cursorY    : variables.cursor.y,
+				region     : variables.currentRegion,
+				anchor     : snapshotAnchor()
+			},
+			true
+		);
+		return this;
+	}
+
+	/**
+	 * Appends a bar command using the current cursor as the origin.
+	 *
+	 * @length The line length.
+	 * @thickness The line thickness.
+	 * @orientation horizontal or vertical.
+	 * @unitOverride Optional unit override for size parameters.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function bar(
+		required any length,
+		any thickness = 1,
+		string orientation = "horizontal",
+		string unitOverride = ""
+	) {
+		ensureDimensions();
+		appendStep(
+			{
+				type        : "bar",
+				length      : toDots( arguments.length, arguments.unitOverride ),
+				thickness   : toDots( arguments.thickness, arguments.unitOverride ),
+				orientation : lCase( arguments.orientation ),
+				cursorX     : variables.cursor.x,
+				cursorY     : variables.cursor.y,
+				region      : variables.currentRegion,
+				anchor      : snapshotAnchor()
+			},
+			true
+		);
+		return this;
+	}
+
+	/**
+	 * Appends a bitmap command using raw binary image bytes.
+	 *
+	 * The bytes are treated as already-normalized bitmap payload data.
+	 *
+	 * @bytes Raw image bytes.
+	 * @width The target image width.
+	 * @height The target image height.
+	 * @mode The TSPL bitmap mode.
+	 * @unitOverride Optional unit override for size parameters.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function image(
+		required binary bytes,
+		required any width,
+		required any height,
+		numeric mode = 0,
+		string unitOverride = ""
+	) {
+		ensureDimensions();
+		appendStep(
+			{
+				type      : "image",
+				bytes     : arguments.bytes,
+				width     : toDots( arguments.width, arguments.unitOverride ),
+				height    : toDots( arguments.height, arguments.unitOverride ),
+				mode      : arguments.mode,
+				cursorX   : variables.cursor.x,
+				cursorY   : variables.cursor.y,
+				region    : variables.currentRegion,
+				anchor    : snapshotAnchor()
+			},
+			true
+		);
+		return this;
+	}
+
+	/**
+	 * Sets the final PRINT command values for the compiled job.
+	 *
+	 * @copies Number of copies.
+	 * @sets Number of sets.
+	 *
+	 * @return TSPLTemplate
+	 */
+	function print( numeric copies = 1, numeric sets = 1 ) {
+		variables.printOptions = {
+			copies : arguments.copies,
+			sets   : arguments.sets
+		};
+		return this;
+	}
+
+	/**
+	 * Compiles the template into a complete printable TSPL job.
+	 *
+	 * Missing template variables cause compilation to fail.
+	 *
+	 * @vars Placeholder values used during rendering.
+	 *
+	 * @return Array
+	 */
+	array function toCommands( struct vars = {} ) {
+		ensureDimensions();
+
+		var commands = [];
+		commands.append( serializeSize() );
+		commands.append( serializeMedia() );
+		commands.append( "DIRECTION #variables.setup.direction#,#variables.setup.mirror#" );
+		commands.append( "REFERENCE #variables.setup.referenceX#,#variables.setup.referenceY#" );
+		commands.append( "OFFSET #variables.setup.offset# dot" );
+
+		if ( len( toString( variables.setup.speed ) ) ) {
+			commands.append( "SPEED #variables.setup.speed#" );
+		}
+
+		if ( len( toString( variables.setup.density ) ) ) {
+			commands.append( "DENSITY #variables.setup.density#" );
+		}
+
+		commands.append( "CLS" );
+
+		for ( var step in variables.steps ) {
+			commands.append( serializeStep( step, arguments.vars ) );
+		}
+
+		commands.append( "PRINT #variables.printOptions.copies#,#variables.printOptions.sets#" );
+
+		return commands;
+	}
+
+	/**
+	 * Appends a step to the template.
+	 */
+	private function appendStep( required struct step, boolean measured = false ) {
+		arguments.step.measure = arguments.measured;
+		variables.steps.append( arguments.step );
+		variables.dimensions.contentLock = true;
+
+		if ( arguments.measured ) {
+			variables.lastMeasured = measureStep( arguments.step );
+		}
+	}
+
+	/**
+	 * Ensures dimensions have been configured before content is authored.
+	 */
+	private function ensureDimensions() {
+		if ( !variables.dimensions.configured ) {
+			throw(
+				type    : "TSPLTemplate.MissingDimensions",
+				message : "Call dimensions() before authoring printable content."
+			);
+		}
+	}
+
+	/**
+	 * Converts a caller supplied value to dots.
+	 */
+	private numeric function toDots( required any value, string unitOverride = "" ) {
+		var mode = len( arguments.unitOverride ) ? normalizeUnitMode( arguments.unitOverride ) : variables.unitMode;
+
+		if ( isNumeric( arguments.value ) ) {
+			switch ( mode ) {
+				case "dots":
+					return int( arguments.value );
+				case "metric":
+					return int( ( arguments.value / 25.4 ) * variables.dpi );
+				case "imperial":
+					return int( arguments.value * variables.dpi );
+			}
+		}
+
+		throw(
+			type    : "TSPLTemplate.InvalidMeasurement",
+			message : "Measurement values must be numeric when converting to dots."
+		);
+	}
+
+	/**
+	 * Normalizes unit mode values.
+	 */
+	private string function normalizeUnitMode( required string mode ) {
+		var normalized = lCase( trim( arguments.mode ) );
+
+		if ( !listFindNoCase( "dots,metric,imperial", normalized ) ) {
+			throw(
+				type    : "TSPLTemplate.InvalidUnitMode",
+				message : "Unit mode must be dots, metric, or imperial."
+			);
+		}
+
+		return normalized;
+	}
+
+	/**
+	 * Measures a fluent step for anchor and advance calculations.
+	 */
+	private struct function measureStep( required struct step ) {
+		switch ( arguments.step.type ) {
+			case "text":
+				return measureTextStep( arguments.step );
+			case "barcode":
+				return {
+					width  : estimateBarcodeWidth( arguments.step ),
+					height : arguments.step.height
+				};
+			case "qrcode":
+				return {
+					width  : estimateQRCodeSize( arguments.step ),
+					height : estimateQRCodeSize( arguments.step )
+				};
+			case "box":
+				return {
+					width  : arguments.step.width,
+					height : arguments.step.height
+				};
+			case "bar":
+				return arguments.step.orientation == "vertical"
+					? { width : arguments.step.thickness, height : arguments.step.length }
+					: { width : arguments.step.length, height : arguments.step.thickness };
+			case "image":
+				return {
+					width  : arguments.step.width,
+					height : arguments.step.height
+				};
+			default:
+				return { width : 0, height : 0 };
+		}
+	}
+
+	/**
+	 * Measures text using built-in font heuristics.
+	 */
+	private struct function measureTextStep( required struct step ) {
+		if ( arguments.step.widthOverride > 0 ) {
+			return {
+				width  : arguments.step.widthOverride,
+				height : estimateFontHeight( arguments.step.font, arguments.step.yMultiplier )
+			};
+		}
+
+		var fontSpec = getFontSpec( arguments.step.font );
+		var rendered = arguments.step.value;
+		var width = len( rendered ) * fontSpec.width * arguments.step.xMultiplier;
+		var height = fontSpec.height * arguments.step.yMultiplier;
+
+		if ( listFindNoCase( "90,270", toString( arguments.step.rotation ) ) ) {
+			return {
+				width  : height,
+				height : width
+			};
+		}
+
+		return {
+			width  : width,
+			height : height
+		};
+	}
+
+	/**
+	 * Returns heuristic built-in font metrics.
+	 */
+	private struct function getFontSpec( required string font ) {
+		var specs = {
+			"0" : { width : 8, height : 12 },
+			"1" : { width : 8, height : 12 },
+			"2" : { width : 12, height : 20 },
+			"3" : { width : 16, height : 24 },
+			"4" : { width : 24, height : 32 },
+			"5" : { width : 32, height : 48 },
+			"TSS24.BF2" : { width : 24, height : 24 },
+			"TSS16.BF2" : { width : 16, height : 16 }
+		};
+
+		return structKeyExists( specs, arguments.font ) ? specs[ arguments.font ] : { width : 8, height : 12 };
+	}
+
+	/**
+	 * Estimates font height for advance calculations.
+	 */
+	private numeric function estimateFontHeight( required string font, required numeric multiplier ) {
+		var fontSpec = getFontSpec( arguments.font );
+		return fontSpec.height * arguments.multiplier;
+	}
+
+	/**
+	 * Estimates QR code size.
+	 */
+	private numeric function estimateQRCodeSize( required struct step ) {
+		return arguments.step.cellWidth * 25;
+	}
+
+	/**
+	 * Estimates barcode width.
+	 */
+	private numeric function estimateBarcodeWidth( required struct step ) {
+		return len( arguments.step.value ) * ( arguments.step.narrow + arguments.step.wide );
+	}
+
+	/**
+	 * Serializes the SIZE command.
+	 */
+	private string function serializeSize() {
+		if ( variables.dimensions.height == "auto" ) {
+			return "SIZE #variables.dimensions.width# dot";
+		}
+
+		return "SIZE #variables.dimensions.width# dot,#variables.dimensions.height# dot";
+	}
+
+	/**
+	 * Serializes the media command.
+	 */
+	private string function serializeMedia() {
+		var keyword = variables.media.type == "bline" ? "BLINE" : "GAP";
+		return "#keyword# #variables.media.primary# dot,#variables.media.secondary# dot";
+	}
+
+	/**
+	 * Serializes a single authored step.
+	 */
+	private string function serializeStep( required struct step, required struct vars ) {
+		var measurement = arguments.step.measure ? measureStepWithVars( arguments.step, arguments.vars ) : { width : 0, height : 0 };
+		var position = resolvePosition( arguments.step, measurement );
+		var templateVars = buildTemplateVars( arguments.step, position, measurement );
+
+		switch ( arguments.step.type ) {
+			case "raw":
+				return renderPlaceholders( arguments.step.command, mergeVars( templateVars, arguments.vars ) );
+			case "text":
+				return 'TEXT #position.x#,#position.y#,"#arguments.step.font#",#arguments.step.rotation#,#arguments.step.xMultiplier#,#arguments.step.yMultiplier#,"#escapeQuotedValue( renderPlaceholders( arguments.step.value, mergeVars( templateVars, arguments.vars ) ) )#"';
+			case "barcode":
+				return 'BARCODE #position.x#,#position.y#,"#arguments.step.codeType#",#arguments.step.height#,#arguments.step.humanReadable#,#arguments.step.rotation#,#arguments.step.narrow#,#arguments.step.wide#,"#escapeQuotedValue( renderPlaceholders( arguments.step.value, mergeVars( templateVars, arguments.vars ) ) )#"';
+			case "qrcode":
+				return 'QRCODE #position.x#,#position.y#,#arguments.step.eccLevel#,#arguments.step.cellWidth#,#arguments.step.mode#,#arguments.step.rotation#,#arguments.step.model#,#arguments.step.mask#,"#escapeQuotedValue( renderPlaceholders( arguments.step.value, mergeVars( templateVars, arguments.vars ) ) )#"';
+			case "box":
+				return arguments.step.radius > 0
+					? "BOX #position.x#,#position.y#,#position.x + arguments.step.width#,#position.y + arguments.step.height#,#arguments.step.thickness#,#arguments.step.radius#"
+					: "BOX #position.x#,#position.y#,#position.x + arguments.step.width#,#position.y + arguments.step.height#,#arguments.step.thickness#";
+			case "bar":
+				return arguments.step.orientation == "vertical"
+					? "BAR #position.x#,#position.y#,#arguments.step.thickness#,#arguments.step.length#"
+					: "BAR #position.x#,#position.y#,#arguments.step.length#,#arguments.step.thickness#";
+			case "image":
+				return "BITMAP #position.x#,#position.y#,#ceiling( arguments.step.width / 8 )#,#arguments.step.height#,#arguments.step.mode#," & toString( arguments.step.bytes, "ISO-8859-1" );
+			default:
+				throw(
+					type    : "TSPLTemplate.UnsupportedStep",
+					message : "Unsupported step type [#arguments.step.type#]."
+				);
+		}
+	}
+
+	/**
+	 * Measures a step using caller supplied variables.
+	 */
+	private struct function measureStepWithVars( required struct step, required struct vars ) {
+		if ( arguments.step.type != "text" && arguments.step.type != "barcode" && arguments.step.type != "qrcode" ) {
+			return measureStep( arguments.step );
+		}
+
+		if ( arguments.step.type == "text" ) {
+			var hydrated = duplicateStep( arguments.step );
+			hydrated.value = renderPlaceholders( arguments.step.value, mergeVars( buildTemplateVars( arguments.step, { x : 0, y : 0 }, { width : 0, height : 0 } ), arguments.vars ) );
+			return measureTextStep( hydrated );
+		}
+
+		if ( arguments.step.type == "barcode" ) {
+			var hydratedBarcode = duplicateStep( arguments.step );
+			hydratedBarcode.value = renderPlaceholders( arguments.step.value, mergeVars( buildTemplateVars( arguments.step, { x : 0, y : 0 }, { width : 0, height : 0 } ), arguments.vars ) );
+			return {
+				width  : estimateBarcodeWidth( hydratedBarcode ),
+				height : hydratedBarcode.height
+			};
+		}
+
+		var hydratedQr = duplicateStep( arguments.step );
+		hydratedQr.value = renderPlaceholders( arguments.step.value, mergeVars( buildTemplateVars( arguments.step, { x : 0, y : 0 }, { width : 0, height : 0 } ), arguments.vars ) );
+		return {
+			width  : estimateQRCodeSize( hydratedQr ),
+			height : estimateQRCodeSize( hydratedQr )
+		};
+	}
+
+	/**
+	 * Builds the template variable scope for a step.
+	 */
+	private struct function buildTemplateVars(
+		required struct step,
+		required struct position,
+		required struct measurement
+	) {
+		var region = variables.regions[ arguments.step.region ];
+
+		return {
+			x            : arguments.position.x,
+			y            : arguments.position.y,
+			width        : arguments.measurement.width,
+			height       : arguments.measurement.height,
+			cursorX      : arguments.step.cursorX,
+			cursorY      : arguments.step.cursorY,
+			regionName   : arguments.step.region,
+			regionX      : region.x,
+			regionY      : region.y,
+			regionWidth  : region.width,
+			regionHeight : region.height
+		};
+	}
+
+	/**
+	 * Resolves the authored position for a step.
+	 */
+	private struct function resolvePosition( required struct step, required struct measurement ) {
+		var region = variables.regions[ arguments.step.region ];
+		var x = resolveAxis(
+			region.x,
+			region.width,
+			arguments.step.cursorX,
+			arguments.measurement.width,
+			arguments.step.anchor.horizontal,
+			false
+		);
+		var y = resolveAxis(
+			region.y,
+			region.height,
+			arguments.step.cursorY,
+			arguments.measurement.height,
+			arguments.step.anchor.vertical,
+			true
+		);
+
+		return { x : x, y : y };
+	}
+
+	/**
+	 * Resolves a single anchored axis.
+	 */
+	private numeric function resolveAxis(
+		required numeric origin,
+		required numeric extent,
+		required numeric cursor,
+		required numeric contentSize,
+		required string anchor,
+		required boolean vertical
+	) {
+		if ( arguments.vertical ) {
+			if ( arguments.anchor == "middle" && arguments.extent > 0 ) {
+				return arguments.origin + int( ( arguments.extent - arguments.contentSize ) / 2 ) + arguments.cursor;
+			}
+
+			if ( arguments.anchor == "bottom" && arguments.extent > 0 ) {
+				return arguments.origin + arguments.extent - arguments.contentSize + arguments.cursor;
+			}
+
+			return arguments.origin + arguments.cursor;
+		}
+
+		if ( arguments.anchor == "center" ) {
+			return arguments.origin + int( ( arguments.extent - arguments.contentSize ) / 2 ) + arguments.cursor;
+		}
+
+		if ( arguments.anchor == "right" ) {
+			return arguments.origin + arguments.extent - arguments.contentSize + arguments.cursor;
+		}
+
+		return arguments.origin + arguments.cursor;
+	}
+
+	/**
+	 * Merges two variable scopes.
+	 */
+	private struct function mergeVars( required struct primary, required struct secondary ) {
+		var merged = {};
+
+		for ( var key, value in arguments.primary ) {
+			merged[ key ] = value;
+		}
+
+		for ( var key, value in arguments.secondary ) {
+			merged[ key ] = value;
+		}
+
+		return merged;
+	}
+
+	/**
+	 * Renders flat {placeholder} tokens.
+	 */
+	private string function renderPlaceholders( required string content, required struct vars ) {
+		var rendered = arguments.content;
+		var matches = reMatch( "\{[A-Za-z0-9_]+\}", rendered );
+
+		for ( var token in matches ) {
+			var key = mid( token, 2, len( token ) - 2 );
+
+			if ( !structKeyExists( arguments.vars, key ) ) {
+				throw(
+					type    : "TSPLTemplate.MissingVariable",
+					message : "Missing template variable [#key#]."
+				);
+			}
+
+			rendered = replace( rendered, token, toString( arguments.vars[ key ] ), "all" );
+		}
+
+		return rendered;
+	}
+
+	/**
+	 * Escapes quoted values for TSPL strings.
+	 */
+	private string function escapeQuotedValue( required string value ) {
+		return replace( arguments.value, '"', '\"', "all" );
+	}
+
+	/**
+	 * Duplicates a step struct.
+	 */
+	private struct function duplicateStep( required struct step ) {
+		var copy = {};
+
+		for ( var key, value in arguments.step ) {
+			copy[ key ] = value;
+		}
+
+		return copy;
+	}
+
+	/**
+	 * Captures the current anchor state.
+	 */
+	private struct function snapshotAnchor() {
+		return {
+			horizontal : variables.anchorState.horizontal,
+			vertical   : variables.anchorState.vertical
+		};
+	}
+}

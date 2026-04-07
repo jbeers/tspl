@@ -1,0 +1,19 @@
+template = createObject( "component", "models.TSPLTemplate" ).init()
+	.dimensions( 576, "auto" )
+	.moveTo( 0, 20 )
+	.anchor( "center" )
+	.text( "Order {orderNumber}", "3" )
+	.advance( 12 )
+	.qrCode( "{trackingCode}", 6 )
+	.print();
+
+commands = template.toCommands(
+	{
+		orderNumber  : 1042,
+		trackingCode : "ZX-1042-OK"
+	}
+);
+
+for ( command in commands ) {
+	println( command );
+}
