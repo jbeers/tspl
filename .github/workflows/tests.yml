@@ -30,6 +30,23 @@ jobs:
         run: |
           box install testbox
 
+      - name: Download BoxLang
+        run: |
+          wget -q https://downloads.ortussolutions.com/ortussolutions/boxlang/boxlang-latest-all.jar -O $HOME/boxlang.jar
+
+      - name: Create a persistent command
+        run: |
+          # Create a directory for your custom commands
+          mkdir -p ~/.local/bin
+          
+          # Create a wrapper script (the "alias")
+          echo 'java -jar $HOME/boxlang.jar "$@"' > ~/.local/bin/boxlang
+          chmod +x ~/.local/bin/boxlang
+          
+          # Add that directory to the PATH for all future steps
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+
       - name: Run tests
         run: |
-          box testbox run runner='testbox.system.runners.BoxLangRunner' directories='tests.specs'
+          testbox/run
