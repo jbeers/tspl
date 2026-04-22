@@ -51,6 +51,50 @@ chunks = template.write(
 );
 ```
 
+### Browser + Web Bluetooth Example
+
+When BoxLang is transpiled to JavaScript, `TSPLJSBluetoothWriter` produces an array of `Uint8Array` chunks ready for the Web Bluetooth API:
+
+```js
+// 1. Build the template (same BoxLang code, transpiled to JS)
+const template = new TSPLTemplate()
+    .dimensions(576, "auto")
+    .gap(0)
+    .moveTo(0, 20)
+    .anchor("center")
+    .text("Order {orderNumber}", "3")
+    .advance(12)
+    .qrCode("{trackingCode}", 6)
+    .print();
+
+// 2. Compile with the JS Bluetooth writer
+const chunks = template.write(
+    { orderNumber: 1042, trackingCode: "ZX-1042-OK" },
+    new TSPLJSBluetoothWriter()
+);
+
+// 3. Connect and print via Web Bluetooth
+async function printOverBle() {
+    const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ["000018f0-0000-1000-8000-00805f9b34fb"] // Common printer service
+    });
+
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService("000018f0-0000-1000-8000-00805f9b34fb");
+    const characteristic = await service.getCharacteristic("00002af1-0000-1000-8000-00805f9b34fb");
+
+    // Send each chunk sequentially
+    for (const chunk of chunks) {
+        await characteristic.writeValueWithoutResponse(chunk);
+    }
+
+    await server.disconnect();
+}
+
+printOverBle();
+```
+
 ## Public API
 
 ### Template setup
