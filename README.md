@@ -16,7 +16,7 @@ The library provides several writer implementations:
 
 - **`TSPLStringWriter`** — Accumulates commands in an array of strings for debugging.
 - **`TSPLBinaryWriter`** — Emits raw binary output with CRLF-terminated text commands and raw bitmap bytes.
-- **`TSPLBluetoothWriter`** — Wraps `TSPLBinaryWriter` and splits output into fixed-size BLE chunks (default 20 bytes).
+- **`TSPLJSBluetoothWriter`** — Browser-environment writer that accumulates raw bytes via JS `TextEncoder` and returns `Uint8Array` chunks sized for BLE transmission (default 20 bytes).
 - **`TSPLJSCanvasWriter`** — Stub for future browser-based canvas preview (not yet implemented).
 
 ## Example
@@ -41,13 +41,13 @@ commands = template.write(
 	new bxModules.tspl.models.TSPLStringWriter()
 );
 
-// For BLE transmission
+// For BLE transmission in a browser
 chunks = template.write(
 	{
 		orderNumber  : 1042,
 		trackingCode : "ZX-1042-OK"
 	},
-	new bxModules.tspl.models.TSPLBluetoothWriter()
+	new bxModules.tspl.models.TSPLJSBluetoothWriter()
 );
 ```
 
