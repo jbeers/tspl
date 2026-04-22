@@ -1,0 +1,93 @@
+/**
+ * Stubbed writer for rendering TSPL commands to a browser canvas.
+ *
+ * This writer is not yet fully implemented. It exists as a placeholder
+ * for future browser-based preview functionality.
+ */
+class TSPLJSCanvasWriter implements ITSPLWriter {
+
+	function init( struct templateState ) {
+		// TODO: Initialize canvas rendering context using templateState
+		return this;
+	}
+
+	function size( numeric width, any height ) {
+		// TODO: Configure canvas dimensions
+	}
+
+	function gap( numeric distance, numeric offset ) {
+		// TODO
+	}
+
+	function bline( numeric height, numeric offset ) {
+		// TODO
+	}
+
+	function direction( numeric direction, numeric mirror ) {
+		// TODO
+	}
+
+	function reference( numeric x, numeric y ) {
+		// TODO
+	}
+
+	function offset( numeric distance ) {
+		// TODO
+	}
+
+	function speed( numeric value ) {
+		// TODO
+	}
+
+	function density( numeric value ) {
+		// TODO
+	}
+
+	function cls() {
+		// TODO: Clear canvas
+	}
+
+	function text( numeric x, numeric y, string font, numeric rotation, numeric xMultiplier, numeric yMultiplier, string value ) {
+		// TODO: Draw text on canvas
+	}
+
+	function barcode( numeric x, numeric y, string codeType, numeric height, numeric humanReadable, numeric rotation, numeric narrow, numeric wide, string value ) {
+		// TODO: Draw barcode on canvas
+	}
+
+	function qrcode( numeric x, numeric y, string eccLevel, numeric cellWidth, string mode, numeric rotation, string model, string mask, string value ) {
+		// TODO: Draw QR code on canvas
+	}
+
+	function box( numeric x, numeric y, numeric width, numeric height, numeric thickness, numeric radius ) {
+		// TODO: Draw box on canvas
+	}
+
+	function bar( numeric x, numeric y, numeric length, numeric thickness, string orientation ) {
+		// TODO: Draw bar on canvas
+	}
+
+	function image( numeric x, numeric y, numeric width, numeric height, numeric mode, binary bytes ) {
+		// TODO: Draw image on canvas
+	}
+
+	function command( string name, array args ) {
+		// TODO: Handle generic commands
+	}
+
+	function raw( required any callback, struct vars = {} ) {
+		// TODO: Execute closure against canvas context
+	}
+
+	function print( numeric copies, numeric sets ) {
+		// TODO: Finalize canvas render
+	}
+
+	any function finalize() {
+		throw(
+			type    : "TSPLJSCanvasWriter.NotImplemented",
+			message : "TSPLJSCanvasWriter is not yet implemented."
+		);
+	}
+
+}

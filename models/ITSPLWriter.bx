@@ -1,0 +1,195 @@
+/**
+ * Pluggable writer interface for TSPL output serialization.
+ *
+ * Implementations receive resolved positions and measurements from TSPLTemplate
+ * and are responsible for encoding commands in their target format.
+ */
+interface {
+
+	/**
+	 * Initializes the writer with template metadata.
+	 *
+	 * @templateState Struct containing dpi, unitMode, dimensions, media, setup, printOptions, regions.
+	 */
+	function init( struct templateState )
+
+	/**
+	 * Emits the SIZE command.
+	 *
+	 * @width Label width in dots.
+	 * @height Label height in dots or "auto".
+	 */
+	function size( numeric width, any height )
+
+	/**
+	 * Emits the GAP command.
+	 *
+	 * @distance Gap distance in dots.
+	 * @offset Gap offset in dots.
+	 */
+	function gap( numeric distance, numeric offset )
+
+	/**
+	 * Emits the BLINE command.
+	 *
+	 * @height Black mark height in dots.
+	 * @offset Black mark offset in dots.
+	 */
+	function bline( numeric height, numeric offset )
+
+	/**
+	 * Emits the DIRECTION command.
+	 *
+	 * @direction TSPL direction value.
+	 * @mirror TSPL mirror value.
+	 */
+	function direction( numeric direction, numeric mirror )
+
+	/**
+	 * Emits the REFERENCE command.
+	 *
+	 * @x Reference X in dots.
+	 * @y Reference Y in dots.
+	 */
+	function reference( numeric x, numeric y )
+
+	/**
+	 * Emits the OFFSET command.
+	 *
+	 * @distance Offset distance in dots.
+	 */
+	function offset( numeric distance )
+
+	/**
+	 * Emits the SPEED command.
+	 *
+	 * @value Speed value.
+	 */
+	function speed( numeric value )
+
+	/**
+	 * Emits the DENSITY command.
+	 *
+	 * @value Density value.
+	 */
+	function density( numeric value )
+
+	/**
+	 * Emits the CLS command.
+	 */
+	function cls()
+
+	/**
+	 * Emits a TEXT command.
+	 *
+	 * @x Resolved X position in dots.
+	 * @y Resolved Y position in dots.
+	 * @font TSPL font identifier.
+	 * @rotation Rotation value.
+	 * @xMultiplier Horizontal multiplier.
+	 * @yMultiplier Vertical multiplier.
+	 * @value Rendered text value.
+	 */
+	function text( numeric x, numeric y, string font, numeric rotation, numeric xMultiplier, numeric yMultiplier, string value )
+
+	/**
+	 * Emits a BARCODE command.
+	 *
+	 * @x Resolved X position in dots.
+	 * @y Resolved Y position in dots.
+	 * @codeType Barcode symbology.
+	 * @height Barcode height in dots.
+	 * @humanReadable Human readable flag.
+	 * @rotation Rotation value.
+	 * @narrow Narrow bar width in dots.
+	 * @wide Wide bar width in dots.
+	 * @value Rendered barcode value.
+	 */
+	function barcode( numeric x, numeric y, string codeType, numeric height, numeric humanReadable, numeric rotation, numeric narrow, numeric wide, string value )
+
+	/**
+	 * Emits a QRCODE command.
+	 *
+	 * @x Resolved X position in dots.
+	 * @y Resolved Y position in dots.
+	 * @eccLevel Error correction level.
+	 * @cellWidth Cell width in dots.
+	 * @mode Input mode.
+	 * @rotation Rotation value.
+	 * @model QR model.
+	 * @mask QR mask.
+	 * @value Rendered QR code value.
+	 */
+	function qrcode( numeric x, numeric y, string eccLevel, numeric cellWidth, string mode, numeric rotation, string model, string mask, string value )
+
+	/**
+	 * Emits a BOX command.
+	 *
+	 * @x Resolved X position in dots.
+	 * @y Resolved Y position in dots.
+	 * @width Box width in dots.
+	 * @height Box height in dots.
+	 * @thickness Border thickness in dots.
+	 * @radius Corner radius in dots.
+	 */
+	function box( numeric x, numeric y, numeric width, numeric height, numeric thickness, numeric radius )
+
+	/**
+	 * Emits a BAR command.
+	 *
+	 * @x Resolved X position in dots.
+	 * @y Resolved Y position in dots.
+	 * @length Line length in dots.
+	 * @thickness Line thickness in dots.
+	 * @orientation "horizontal" or "vertical".
+	 */
+	function bar( numeric x, numeric y, numeric length, numeric thickness, string orientation )
+
+	/**
+	 * Emits a BITMAP command.
+	 *
+	 * @x Resolved X position in dots.
+	 * @y Resolved Y position in dots.
+	 * @width Image width in dots.
+	 * @height Image height in dots.
+	 * @mode Bitmap mode.
+	 * @bytes Raw binary image payload.
+	 */
+	function image( numeric x, numeric y, numeric width, numeric height, numeric mode, binary bytes )
+
+	/**
+	 * Emits a generic TSPL command.
+	 *
+	 * This is an escape hatch for commands not covered by explicit methods.
+	 * Arguments should be pre-formatted by the caller.
+	 *
+	 * @name Command name (e.g. "REVERSE").
+	 * @args Array of argument strings/numbers.
+	 */
+	function command( string name, array args )
+
+	/**
+	 * Executes a raw closure step.
+	 *
+	 * The callback receives (writer, vars) and can invoke any writer method.
+	 *
+	 * @callback Closure function( writer, vars ).
+	 * @vars Template variable scope.
+	 */
+	function raw( required any callback, struct vars )
+
+	/**
+	 * Emits the PRINT command.
+	 *
+	 * @copies Number of copies.
+	 * @sets Number of sets.
+	 */
+	function print( numeric copies, numeric sets )
+
+	/**
+	 * Finalizes the output and returns the result.
+	 *
+	 * Return type varies by implementation (array, binary, etc.).
+	 */
+	any function finalize()
+}

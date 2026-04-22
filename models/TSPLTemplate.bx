@@ -1,7 +1,7 @@
 /**
  * Fluent TSPL job builder for BoxLang.
  */
-class {
+class TSPLTemplate {
 
 	/**
 	 * Creates a new template.
@@ -404,21 +404,21 @@ class {
 	}
 
 	/**
-	 * Appends a raw TSPL command template.
+	 * Appends a raw TSPL step via a closure.
 	 *
-	 * The command participates in variable substitution during toCommands().
-	 * Reserved variables like {x} and {y} reflect the authored cursor state for the raw command.
+	 * The closure receives (writer, vars) and can invoke any writer method.
+	 * If the closure returns a {width, height} struct, it participates in advance().
 	 *
-	 * @command Raw TSPL command template.
+	 * @callback A closure function( writer, vars ).
 	 *
 	 * @return TSPLTemplate
 	 */
-	function raw( required string command ) {
+	function raw( required any callback ) {
 		ensureDimensions();
 		appendStep(
 			{
 				type     : "raw",
-				command  : arguments.command,
+				callback : arguments.callback,
 				cursorX  : variables.cursor.x,
 				cursorY  : variables.cursor.y,
 				region   : variables.currentRegion,
@@ -683,41 +683,141 @@ class {
 	}
 
 	/**
-	 * Compiles the template into a complete printable TSPL job.
-	 *
-	 * Missing template variables cause compilation to fail.
+	 * Compiles the template using the provided writer.
 	 *
 	 * @vars Placeholder values used during rendering.
+	 * @writer An ITSPLWriter implementation.
 	 *
-	 * @return Array
+	 * @return Any
 	 */
-	array function toCommands( struct vars = {} ) {
+	any function write( struct vars = {}, required any writer ) {
 		ensureDimensions();
 
-		var commands = [];
-		commands.append( serializeSize() );
-		commands.append( serializeMedia() );
-		commands.append( "DIRECTION #variables.setup.direction#,#variables.setup.mirror#" );
-		commands.append( "REFERENCE #variables.setup.referenceX#,#variables.setup.referenceY#" );
-		commands.append( "OFFSET #variables.setup.offset# dot" );
+		writer.init( getTemplateState() );
+
+		writer.size( variables.dimensions.width, variables.dimensions.height );
+
+		if ( variables.media.type == "bline" ) {
+			writer.bline( variables.media.primary, variables.media.secondary );
+		} else {
+			writer.gap( variables.media.primary, variables.media.secondary );
+		}
+
+		writer.direction( variables.setup.direction, variables.setup.mirror );
+		writer.reference( variables.setup.referenceX, variables.setup.referenceY );
+		writer.offset( variables.setup.offset );
 
 		if ( len( toString( variables.setup.speed ) ) ) {
-			commands.append( "SPEED #variables.setup.speed#" );
+			writer.speed( variables.setup.speed );
 		}
 
 		if ( len( toString( variables.setup.density ) ) ) {
-			commands.append( "DENSITY #variables.setup.density#" );
+			writer.density( variables.setup.density );
 		}
 
-		commands.append( "CLS" );
+		writer.cls();
 
 		for ( var step in variables.steps ) {
-			commands.append( serializeStep( step, arguments.vars ) );
+			if ( step.type == "raw" ) {
+				var result = step.callback( arguments.writer, arguments.vars );
+				if ( isStruct( result ) && structKeyExists( result, "width" ) && structKeyExists( result, "height" ) ) {
+					variables.lastMeasured = result;
+				}
+			} else {
+				var measurement = measureStepWithVars( step, arguments.vars );
+				var position = resolvePosition( step, measurement );
+				var mergedVars = mergeVars( buildTemplateVars( step, position, measurement ), arguments.vars );
+
+				switch ( step.type ) {
+					case "text":
+						arguments.writer.text(
+							position.x,
+							position.y,
+							step.font,
+							step.rotation,
+							step.xMultiplier,
+							step.yMultiplier,
+							renderPlaceholders( step.value, mergedVars )
+						);
+						break;
+					case "barcode":
+						arguments.writer.barcode(
+							position.x,
+							position.y,
+							step.codeType,
+							step.height,
+							step.humanReadable,
+							step.rotation,
+							step.narrow,
+							step.wide,
+							renderPlaceholders( step.value, mergedVars )
+						);
+						break;
+					case "qrcode":
+						arguments.writer.qrcode(
+							position.x,
+							position.y,
+							step.eccLevel,
+							step.cellWidth,
+							step.mode,
+							step.rotation,
+							step.model,
+							step.mask,
+							renderPlaceholders( step.value, mergedVars )
+						);
+						break;
+					case "box":
+						arguments.writer.box(
+							position.x,
+							position.y,
+							step.width,
+							step.height,
+							step.thickness,
+							step.radius
+						);
+						break;
+					case "bar":
+						arguments.writer.bar(
+							position.x,
+							position.y,
+							step.length,
+							step.thickness,
+							step.orientation
+						);
+						break;
+					case "image":
+						arguments.writer.image(
+							position.x,
+							position.y,
+							step.width,
+							step.height,
+							step.mode,
+							step.bytes
+						);
+						break;
+				}
+			}
 		}
 
-		commands.append( "PRINT #variables.printOptions.copies#,#variables.printOptions.sets#" );
+		writer.print( variables.printOptions.copies, variables.printOptions.sets );
 
-		return commands;
+		return writer.finalize();
+	}
+
+	/**
+	 * Builds the template state struct passed to writer.init().
+	 */
+	private struct function getTemplateState() {
+		return {
+			dpi             : variables.dpi,
+			unitMode        : variables.unitMode,
+			dimensions      : variables.dimensions,
+			media           : variables.media,
+			setup           : variables.setup,
+			printOptions    : variables.printOptions,
+			defaultLineStep : variables.defaultLineStep,
+			regions         : variables.regions
+		};
 	}
 
 	/**

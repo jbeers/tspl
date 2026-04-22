@@ -1,0 +1,5 @@
+testbox/
+panic_debug.txt
+tests/results/latestrun.log
+tests/results/report.txt
+tests/results/TEST.properties

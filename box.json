@@ -5,7 +5,9 @@
     "contributors":[],
     "dependencies":{},
     "description":"This module provides tools for generating TSPL commands for use with thermal printers. Written for BoxLang.",
-    "devDependencies":{},
+    "devDependencies":{
+        "testbox":"^7.0.0+19"
+    },
     "documentation":"",
     "homepage":"",
     "ignore":[
@@ -13,7 +15,9 @@
         "/test/",
         "/tests/"
     ],
-    "installPaths":{},
+    "installPaths":{
+        "testbox":"testbox/"
+    },
     "instructions":"",
     "keywords":[],
     "license":[

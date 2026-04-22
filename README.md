@@ -6,9 +6,18 @@
 
 - All authored measurements are converted to dots internally.
 - The template starts in `dots` mode and can be switched to `metric` or `imperial`.
-- `toCommands( vars = {} )` returns a complete printable job, including setup, `CLS`, authored commands, and `PRINT`.
+- `write( vars = {}, writer )` compiles the template through a pluggable writer.
 - Template placeholders are flat `{name}` tokens and missing values throw during compilation.
-- Raw TSPL remains available through `raw()`, but fluent commands handle positioning, anchoring, and measured `advance()`.
+- Raw TSPL is available through closure-based `raw()`, and fluent commands handle positioning, anchoring, and measured `advance()`.
+
+## Writers
+
+The library provides several writer implementations:
+
+- **`TSPLStringWriter`** — Accumulates commands in an array of strings for debugging.
+- **`TSPLBinaryWriter`** — Emits raw binary output with CRLF-terminated text commands and raw bitmap bytes.
+- **`TSPLBluetoothWriter`** — Wraps `TSPLBinaryWriter` and splits output into fixed-size BLE chunks (default 20 bytes).
+- **`TSPLJSCanvasWriter`** — Stub for future browser-based canvas preview (not yet implemented).
 
 ## Example
 
@@ -23,10 +32,23 @@ template = new bxModules.tspl.models.TSPLTemplate()
 	.qrCode( "{trackingCode}", 6 )
 	.print();
 
-commands = template.toCommands( {
-	orderNumber  : 1042,
-	trackingCode : "ZX-1042-OK"
-} );
+// For debugging
+commands = template.write(
+	{
+		orderNumber  : 1042,
+		trackingCode : "ZX-1042-OK"
+	},
+	new bxModules.tspl.models.TSPLStringWriter()
+);
+
+// For BLE transmission
+chunks = template.write(
+	{
+		orderNumber  : 1042,
+		trackingCode : "ZX-1042-OK"
+	},
+	new bxModules.tspl.models.TSPLBluetoothWriter()
+);
 ```
 
 ## Public API
@@ -77,8 +99,8 @@ commands = template.toCommands( {
 
 ### Content commands
 
-- `raw( command )`
-  Emits raw TSPL with placeholder support.
+- `raw( callback )`
+  Accepts a closure `(writer, vars) => { ... }` that can invoke any writer method directly. If the closure returns `{ width, height }`, it participates in `advance()`.
 - `text( value, font = "0", xMultiplier = 1, yMultiplier = 1, rotation = 0, widthOverride = 0 )`
   Maps to `TEXT`.
 - `barcode( value, codeType = "128", height = 80, humanReadable = 1, rotation = 0, narrow = 2, wide = 2, unitOverride = "" )`
@@ -92,8 +114,33 @@ commands = template.toCommands( {
 - `image( bytes, width, height, mode = 0, unitOverride = "" )`
   Maps to `BITMAP`. In the current implementation, the bytes are treated as pre-normalized bitmap payload bytes.
 
+### Writer interface
+
+All writers implement `ITSPLWriter`:
+
+- `init( templateState )`
+- `size( width, height )`
+- `gap( distance, offset )`
+- `bline( height, offset )`
+- `direction( direction, mirror )`
+- `reference( x, y )`
+- `offset( distance )`
+- `speed( value )`
+- `density( value )`
+- `cls()`
+- `text( x, y, font, rotation, xMultiplier, yMultiplier, value )`
+- `barcode( x, y, codeType, height, humanReadable, rotation, narrow, wide, value )`
+- `qrcode( x, y, eccLevel, cellWidth, mode, rotation, model, mask, value )`
+- `box( x, y, width, height, thickness, radius )`
+- `bar( x, y, length, thickness, orientation )`
+- `image( x, y, width, height, mode, bytes )`
+- `command( name, args )` — Generic escape hatch for unsupported commands.
+- `raw( callback, vars )`
+- `print( copies, sets )`
+- `finalize()` — Returns the output (format varies by writer).
+
 ## Notes
 
 - Repeated `dimensions()` calls throw once drawable content has been added.
-- Raw commands do not participate in measured `advance()` unless you model the same content through the fluent API.
+- Raw closures do not participate in measured `advance()` unless they return `{ width, height }`.
 - Vertical centering against the full label is not meaningful when the template height is `auto`; use named regions when you need a bounded layout frame.

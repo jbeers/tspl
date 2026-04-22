@@ -1,0 +1,131 @@
+/**
+ * Binary TSPL writer that accumulates commands as raw bytes.
+ *
+ * Text commands are encoded as UTF-8 with CRLF terminators.
+ * Image bytes are appended raw without additional framing.
+ */
+class TSPLBinaryWriter implements ITSPLWriter {
+
+	function init( struct templateState ) {
+		variables.segments = [];
+		return this;
+	}
+
+	private function appendText( required string text ) {
+		variables.segments.append( charsetDecode( arguments.text & "\r\n", "utf-8" ) );
+	}
+
+	private function appendBytes( required binary bytes ) {
+		variables.segments.append( arguments.bytes );
+	}
+
+	function size( numeric width, any height ) {
+		if ( isSimpleValue( arguments.height ) && lCase( toString( arguments.height ) ) == "auto" ) {
+			appendText( "SIZE #arguments.width# dot" );
+		} else {
+			appendText( "SIZE #arguments.width# dot,#arguments.height# dot" );
+		}
+	}
+
+	function gap( numeric distance, numeric offset ) {
+		appendText( "GAP #arguments.distance# dot,#arguments.offset# dot" );
+	}
+
+	function bline( numeric height, numeric offset ) {
+		appendText( "BLINE #arguments.height# dot,#arguments.offset# dot" );
+	}
+
+	function direction( numeric direction, numeric mirror ) {
+		appendText( "DIRECTION #arguments.direction#,#arguments.mirror#" );
+	}
+
+	function reference( numeric x, numeric y ) {
+		appendText( "REFERENCE #arguments.x#,#arguments.y#" );
+	}
+
+	function offset( numeric distance ) {
+		appendText( "OFFSET #arguments.distance# dot" );
+	}
+
+	function speed( numeric value ) {
+		appendText( "SPEED #arguments.value#" );
+	}
+
+	function density( numeric value ) {
+		appendText( "DENSITY #arguments.value#" );
+	}
+
+	function cls() {
+		appendText( "CLS" );
+	}
+
+	function text( numeric x, numeric y, string font, numeric rotation, numeric xMultiplier, numeric yMultiplier, string value ) {
+		appendText( 'TEXT #arguments.x#,#arguments.y#,"#arguments.font#",#arguments.rotation#,#arguments.xMultiplier#,#arguments.yMultiplier#,"#escapeQuotedValue( arguments.value )#"' );
+	}
+
+	function barcode( numeric x, numeric y, string codeType, numeric height, numeric humanReadable, numeric rotation, numeric narrow, numeric wide, string value ) {
+		appendText( 'BARCODE #arguments.x#,#arguments.y#,"#arguments.codeType#",#arguments.height#,#arguments.humanReadable#,#arguments.rotation#,#arguments.narrow#,#arguments.wide#,"#escapeQuotedValue( arguments.value )#"' );
+	}
+
+	function qrcode( numeric x, numeric y, string eccLevel, numeric cellWidth, string mode, numeric rotation, string model, string mask, string value ) {
+		appendText( 'QRCODE #arguments.x#,#arguments.y#,#arguments.eccLevel#,#arguments.cellWidth#,#arguments.mode#,#arguments.rotation#,#arguments.model#,#arguments.mask#,"#escapeQuotedValue( arguments.value )#"' );
+	}
+
+	function box( numeric x, numeric y, numeric width, numeric height, numeric thickness, numeric radius ) {
+		if ( arguments.radius > 0 ) {
+			appendText( "BOX #arguments.x#,#arguments.y#,#arguments.x + arguments.width#,#arguments.y + arguments.height#,#arguments.thickness#,#arguments.radius#" );
+		} else {
+			appendText( "BOX #arguments.x#,#arguments.y#,#arguments.x + arguments.width#,#arguments.y + arguments.height#,#arguments.thickness#" );
+		}
+	}
+
+	function bar( numeric x, numeric y, numeric length, numeric thickness, string orientation ) {
+		if ( arguments.orientation == "vertical" ) {
+			appendText( "BAR #arguments.x#,#arguments.y#,#arguments.thickness#,#arguments.length#" );
+		} else {
+			appendText( "BAR #arguments.x#,#arguments.y#,#arguments.length#,#arguments.thickness#" );
+		}
+	}
+
+	function image( numeric x, numeric y, numeric width, numeric height, numeric mode, binary bytes ) {
+		appendText( "BITMAP #arguments.x#,#arguments.y#,#ceiling( arguments.width / 8 )#,#arguments.height#,#arguments.mode#," );
+		appendBytes( arguments.bytes );
+		appendText( "" );
+	}
+
+	function command( string name, array args ) {
+		appendText( "#arguments.name# #arrayToList( arguments.args, ',' )#" );
+	}
+
+	function raw( required any callback, struct vars = {} ) {
+		arguments.callback( this, arguments.vars );
+	}
+
+	function print( numeric copies, numeric sets ) {
+		appendText( "PRINT #arguments.copies#,#arguments.sets#" );
+	}
+
+	any function finalize() {
+		var stream = createObject( "java", "java.io.ByteArrayOutputStream" ).init();
+		for ( var segment in variables.segments ) {
+			stream.write( segment );
+		}
+		return stream.toByteArray();
+	}
+
+	array function toSegments() {
+		var copy = [];
+		for ( var segment in variables.segments ) {
+			copy.append( segment );
+		}
+		return copy;
+	}
+
+	/**
+	 * Escapes quoted values for TSPL strings.
+	 */
+	private string function escapeQuotedValue( required string value ) {
+		return replace( arguments.value, '"', '\"', "all" );
+	}
+
+}
