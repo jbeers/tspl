@@ -20,10 +20,9 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Install BoxLang
+      - name: Download BoxLang
         run: |
-          curl -fsSL https://install.boxlang.io/ | bash
-          echo "$HOME/.boxlang/bin" >> $GITHUB_PATH
+          wget -q https://downloads.ortussolutions.com/ortussolutions/boxlang/boxlang-latest-all.jar -O boxlang.jar
 
       - name: Install TestBox
         run: |
@@ -31,4 +30,4 @@ jobs:
 
       - name: Run tests
         run: |
-          boxlang testbox/system/runners/BoxLangRunner.bx --directory=tests.specs
+          java -jar boxlang.jar testbox/system/runners/BoxLangRunner.bx --directory=tests.specs
