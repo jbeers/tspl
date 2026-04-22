@@ -1,7 +1,7 @@
 /**
  * String-based TSPL writer that accumulates commands in an array for debugging.
  */
-class TSPLStringWriter implements ITSPLWriter {
+class TSPLStringWriter implements="ITSPLWriter" {
 
 	function init( struct templateState ) {
 		variables.commands = [];

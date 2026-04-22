@@ -8,7 +8,7 @@ import js:Uint8Array;
  *
  * Designed for BoxLang transpiled to JavaScript running in a browser.
  */
-class TSPLJSBluetoothWriter implements ITSPLWriter {
+class TSPLJSBluetoothWriter implements="ITSPLWriter" {
 
 	function init( struct templateState ) {
 		variables.chunkSize = 20;

@@ -4,7 +4,7 @@
  * This writer is not yet fully implemented. It exists as a placeholder
  * for future browser-based preview functionality.
  */
-class TSPLJSCanvasWriter implements ITSPLWriter {
+class TSPLJSCanvasWriter implements="ITSPLWriter" {
 
 	function init( struct templateState ) {
 		// TODO: Initialize canvas rendering context using templateState
