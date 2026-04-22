@@ -20,14 +20,16 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download BoxLang
+      - name: Set up CommandBox
         run: |
-          wget -q https://downloads.ortussolutions.com/ortussolutions/boxlang/boxlang-latest-all.jar -O boxlang.jar
+          curl -fsSL https://downloads.ortussolutions.com/ortussolutions/commandbox/6.1.0/commandbox-bin-6.1.0.zip -o commandbox.zip
+          unzip -q commandbox.zip -d $HOME/.commandbox
+          echo "$HOME/.commandbox" >> $GITHUB_PATH
 
       - name: Install TestBox
         run: |
-          git clone --depth 1 https://github.com/Ortus-Solutions/TestBox.git testbox
+          box install testbox
 
       - name: Run tests
         run: |
-          java -jar boxlang.jar testbox/system/runners/BoxLangRunner.bx --directory=tests.specs
+          box testbox run runner='testbox.system.runners.BoxLangRunner' directories='tests.specs'

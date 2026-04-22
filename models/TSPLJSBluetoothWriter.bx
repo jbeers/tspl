@@ -1,5 +1,5 @@
-import js.TextEncoder;
-import js.Uint8Array;
+import js:TextEncoder;
+import js:Uint8Array;
 /**
  * JavaScript-environment BLE TSPL writer.
  *
